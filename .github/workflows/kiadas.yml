@@ -1,0 +1,41 @@
+name: Kiadás
+
+# Egy "v*" címke (pl. v1.0.0) feltöltésekor lefordítja a programot,
+# összerakja a csomagot (exe + hangok + útmutató + WinFsp), és kiadást készít.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  kiadas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Tesztek
+        run: go test ./core
+      - name: WinFsp telepítő letöltése
+        run: |
+          mkdir -p winfsp
+          curl -fsSL -o winfsp/winfsp-2.1.25156.msi https://github.com/winfsp/winfsp/releases/download/v2.1/winfsp-2.1.25156.msi
+      - name: Manifest (rsrc)
+        run: |
+          go install github.com/akavel/rsrc@latest
+          $(go env GOPATH)/bin/rsrc -arch amd64 -manifest realpassgal.manifest -o rsrc_windows_amd64.syso
+      - name: Csomag
+        run: sh make_release.sh "${GITHUB_REF_NAME}"
+      - name: Kiadás
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in v*) ;; *) TAG="v1.0.0";; esac
+          gh release create "$TAG" dist/RealPassGAL.zip dist/RealPassGAL.zip.sha256 dist/telepito.bat \
+            --title "RealPassGAL ${TAG#v}" --notes-file KIADAS.md || \
+          gh release upload "$TAG" dist/RealPassGAL.zip dist/RealPassGAL.zip.sha256 dist/telepito.bat --clobber
