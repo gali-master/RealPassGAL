@@ -1,0 +1,17 @@
+# SOHA ne kerüljön fel: kulcsok, konténerek, foglalások
+adatok/
+*.gal
+*.gal.lock
+*.gal.state
+*.galid
+*.galdb
+*.galkey
+*.galkbx
+# fordítás és kiadás
+*.exe
+*.syso
+dist/
+# helyi segédfájlok
+hang/mintak/
+kepek/_minta/
+*.msi

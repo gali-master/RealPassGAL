@@ -1,0 +1,46 @@
+﻿RealPassGAL bemutató – felolvasandó szövegek
+
+Minden szöveget külön fájlba vegyél fel, és nevezd el a sorszámával:
+01.mp3, 02.mp3 … 13.mp3  (wav vagy m4a is jó).
+A fájlokat ebbe a mappába tedd (hang), a RealPassGAL.exe mellé.
+Ha egy lépéshez nincs fájl, ott a Windows hangja olvas.
+Tipp: csendes szoba, telefon kb. 20 cm-re, nyugodt, beszélgetős tempó.
+
+=== 01 – Mi ez? ===
+Ez a RealPassGAL: egy zsebre tehető, titkosított széf. Egyetlen fájl, amely lehet a gépeden, egy pendrive-on vagy a OneDrive-on. Aki kulcs nélkül nézi, csak értelmetlen adathalmazt lát. Te kinyitod, és a Windowsban meghajtóként használod. Nézzük meg a nulláról, hogyan kezd hozzá Minta Péter és Minta Anna.
+
+=== 02 – Első indítás ===
+Első indításkor a program megkérdezi a neved, és kér egy jelszót. A jelszó nem a kulcs, hanem a lakat a kulcsfájlodon. A legjobb néhány véletlen szóból álló mondat: könnyű megjegyezni, nehéz kitalálni. Az erősségjelző menet közben mutatja, hol tartasz.
+
+=== 03 – Véletlen az egérből ===
+A kulcs a véletlenből születik. Péter összevissza mozgatja az egeret, a program pedig a mozdulatokat összekeveri a Windows saját véletlenjével. Amikor a csík megtelik, elég véletlen gyűlt össze.
+
+=== 04 – Kész a kulcspár ===
+Elkészült Péter kulcspárja. Az ujjlenyomat egy rövid kód, amely a kulcsát azonosítja. Ezt fogja felolvasni Annának, hogy biztosan egymás kulcsát kapják meg. Közben megjelent a program főablaka is.
+
+=== 05 – Kulcscsere ===
+Péter és Anna kicserélik a nyilvános kulcsukat. Ez nem titok, mehet e-mailben vagy üzenetben is: a nyilvános kulccsal senki nem tud kinyitni semmit, csak lezárni valamit a partner számára.
+
+=== 06 – Ujjlenyomat-egyeztetés ===
+Egyetlen dolgot kell ellenőrizni: hogy tényleg Anna kulcsa érkezett-e meg. Anna telefonon felolvassa az ujjlenyomatát, Péter pedig összeveti azzal, amit a program mutat. Ha minden karakter egyezik, Anna bekerül a partnerek közé.
+
+=== 07 – Kulcskönyv ===
+Most jön a második lakat kulcsa: a közös kulcskönyv, egymillió titkos oldallal. Péter generálja, és pendrive-on, kézből kézbe adja át Annának – ez soha nem jár a neten. Végül összevetik az ellenőrzőkódot: ha egyezik, a két könyv azonos.
+
+=== 08 – Új konténer ===
+Péter létrehozza a közös széfet. Megadja a méretét és a helyét – most a OneDrive-on –, és bepipálja, hogy Anna is hozzáférhet.
+
+=== 09 – Feltöltés ===
+A program a teljes méretet véletlen adattal tölti fel. Így kívülről az sem látszik, mennyi valódi adat van a széfben.
+
+=== 10 – Felcsatolás és munka ===
+Kész a széf. Péter felcsatolja, és a Windowsban megjelenik egy új meghajtó. Úgy használja, mint egy pendrive-ot: másol, megnyit, átnevez. A mentés magától történik, a lemezre minden titkosítva kerül.
+
+=== 11 – Anna is jönne ===
+Közben Anna is megnyitná ugyanazt a széfet. A program látja, hogy Péter éppen dolgozik benne, ezért Annánál csak olvasható módban nyílik meg. Így nem írhatják felül egymás munkáját.
+
+=== 12 – Újrakulcsolás ===
+Harminc naponta a program lapoz egyet a közös kulcskönyvben: új kulcs, és a teljes tartalom újratitkosítva. A kulcs így mindig friss, a régi mentések pedig továbbra is kinyithatók maradnak.
+
+=== 13 – Összefoglaló ===
+Ennyi az egész. Egyszer: kulcspár, kulcscsere, kulcskönyv és a széf létrehozása. Utána minden nap csak felcsatolás, munka, lecsatolás. Egy fájl, két lakat – és csak azok nyitják ki, akiket te beengedsz.
