@@ -31,6 +31,9 @@ func main() {
 		runDemoMode()
 		return
 	}
+	if exe, err := os.Executable(); err == nil {
+		core.CleanupOldExe(exe) // az előző frissítésből megmaradt régi program
+	}
 	dir, err := core.DataDir()
 	if err != nil {
 		walk.MsgBox(nil, appTitle, "Nem érem el az adatmappát:\n"+err.Error(), walk.MsgBoxIconError)

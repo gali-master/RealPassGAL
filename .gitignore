@@ -15,3 +15,6 @@ dist/
 hang/mintak/
 kepek/_minta/
 *.msi
+*.exe.old
+RealPassGAL_frissites.zip
+RealPassGAL_alairando.zip

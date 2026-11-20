@@ -3,9 +3,8 @@ package core
 import (
 	"bytes"
 	"crypto/ecdh"
-	"crypto/sha256"
-	"strings"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -13,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -305,6 +306,15 @@ func metaAD(uuid [16]byte, gen uint64, epoch uint32) []byte {
 // Commit – új generáció: metaadat, majd fejléc a régebbi példány helyére.
 func (c *Container) Commit(me *Identity, r io.Reader) error {
 	h := &c.H
+	// A generációt csak sikeres mentés után tartjuk meg: hibánál visszaáll, így a következő
+	// próbálkozás is a régebbi példány helyére ír, a legutóbbi érvényes mentés érintetlen marad.
+	prevGen := h.Generation
+	ok := false
+	defer func() {
+		if !ok {
+			h.Generation = prevGen
+		}
+	}()
 	h.Generation++
 	c.Meta.SavedBy, c.Meta.SavedAt = me.Name, time.Now().UTC().Truncate(time.Second)
 	pt, err := json.Marshal(c.Meta)
@@ -336,6 +346,7 @@ func (c *Container) Commit(me *Identity, r io.Reader) error {
 	if err := c.f.Sync(); err != nil {
 		return err
 	}
+	ok = true
 	c.SignedBy = me.Name
 	now := time.Now()
 	os.Chtimes(c.Path, now, now) // a OneDrive biztosan észrevegye
@@ -372,11 +383,14 @@ func openOn(f *os.File, path string, me *Identity, partners []*PublicKey, lookup
 		return nil, err
 	}
 	known := append([]*PublicKey{me.Public()}, partners...)
-	var best *Header
-	var bestSigner *PublicKey
+	type cand struct {
+		h      *Header
+		signer *PublicKey
+	}
+	var cands []cand
 	unknownSigner, anyHeader := false, false
 	var unknownGen uint64
-	fallback := false
+	badSig := false
 	for i := int64(0); i < 2; i++ {
 		b := make([]byte, hdrLen)
 		if _, err := f.ReadAt(b, i*HeaderSlot); err != nil {
@@ -401,26 +415,49 @@ func openOn(f *os.File, path string, me *Identity, partners []*PublicKey, lookup
 			continue
 		}
 		if !ed25519.Verify(ed25519.PublicKey(signer.Ed25519), b[:hdrSigned], h.Sig[:]) {
-			fallback = true
+			badSig = true
 			continue
 		}
-		if best == nil || h.Generation > best.Generation {
-			best, bestSigner = h, signer
-		}
+		cands = append(cands, cand{h, signer})
 	}
 	switch {
-	case best == nil && unknownSigner:
+	case len(cands) == 0 && unknownSigner:
 		return nil, errors.New("a konténert olyan valaki mentette, aki nincs a partnereid között")
-	case best == nil && anyHeader:
+	case len(cands) == 0 && anyHeader:
 		return nil, errors.New("a konténer fejléce sérült vagy módosították")
-	case best == nil:
+	case len(cands) == 0:
 		return nil, errors.New("ez nem RealPassGAL konténer (.gal)")
 	}
-	if unknownSigner && unknownGen > best.Generation {
+	sort.Slice(cands, func(i, j int) bool { return cands[i].h.Generation > cands[j].h.Generation })
+	if unknownSigner && unknownGen > cands[0].h.Generation {
 		return nil, errors.New("a konténer legutóbbi mentését olyan valaki készítette, aki nincs a partnereid között")
 	}
-	if best.Layout.Total != st.Size() {
-		return nil, fmt.Errorf("a fájl mérete nem egyezik (%d helyett %d bájt) – csonka vagy még szinkronizál", best.Layout.Total, st.Size())
+	// A legfrissebb érvényes mentéssel próbálkozunk; ha az nem nyitható (pl. áramszünet a mentés
+	// közepén), az előző érvényes mentésre esünk vissza – figyelmeztetéssel.
+	var firstErr error
+	for k, cd := range cands {
+		c, err := unlockHeader(f, st.Size(), path, me, cd.h, cd.signer, lookup)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		switch {
+		case k > 0:
+			c.Warning = "A legutóbbi mentés nem volt teljes (pl. áramszünet vagy megszakadt szinkron), ezért a program az előző érvényes mentést nyitotta meg. Az azóta végzett módosítások hiányozhatnak."
+		case badSig:
+			c.Warning = "Az egyik fejléc-példány sérült; a program az előző érvényes mentést nyitotta meg."
+		}
+		return c, nil
+	}
+	return nil, firstErr
+}
+
+// unlockHeader – egy (már aláírás-ellenőrzött) fejléc kinyitása: kulcskönyv, saját rekesz, metaadat.
+func unlockHeader(f *os.File, size int64, path string, me *Identity, best *Header, signer *PublicKey, lookup KeybookLookup) (*Container, error) {
+	if best.Layout.Total != size {
+		return nil, fmt.Errorf("a fájl mérete nem egyezik (%d helyett %d bájt) – csonka vagy még szinkronizál", best.Layout.Total, size)
 	}
 	kb := lookup(best.KeybookID)
 	if kb == nil {
@@ -452,10 +489,7 @@ func openOn(f *os.File, path string, me *Identity, partners []*PublicKey, lookup
 		return nil, errors.New("nem vagy a konténer címzettjei között")
 	}
 	defer wipe(dek)
-	c := &Container{Path: path, H: *best, f: f, SignedBy: bestSigner.Name}
-	if fallback {
-		c.Warning = "Az egyik fejléc-példány sérült; a program az előző érvényes mentést nyitotta meg."
-	}
+	c := &Container{Path: path, H: *best, f: f, SignedBy: signer.Name}
 	c.metaKey, c.blockKey = deriveKeys(dek, best.UUID)
 	if err := c.readMeta(); err != nil {
 		return nil, err
@@ -471,7 +505,7 @@ func (c *Container) readMeta() error {
 		return err
 	}
 	n := binary.BigEndian.Uint64(lb[:])
-	if n == 0 || int64(n)+8 > h.Layout.MetaSize {
+	if n == 0 || n > uint64(h.Layout.MetaSize-8) {
 		return errors.New("a metaadat sérült")
 	}
 	ct := make([]byte, n)

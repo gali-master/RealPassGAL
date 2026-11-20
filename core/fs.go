@@ -68,6 +68,7 @@ type FS struct {
 	open     map[uint64]int
 	modified map[uint64]bool
 	nextFree uint32
+	nfree    int // szabad (nem hivatkozott, nem fenntartott) blokkok száma
 
 	dirty      bool
 	lastChange time.Time
@@ -90,6 +91,7 @@ func NewFS(c *Container, me *Identity, rng io.Reader, readOnly bool) *FS {
 		open:     map[uint64]int{},
 		modified: map[uint64]bool{},
 		stop:     make(chan struct{}),
+		nfree:    int(c.H.Layout.Blocks),
 	}
 	t := c.H.Created.UnixNano()
 	f.root = &Node{ID: RootID, Dir: true, Mtime: t, Ctime: t, Btime: t}
@@ -105,8 +107,9 @@ func NewFS(c *Container, me *Identity, rng io.Reader, readOnly bool) *FS {
 			}
 		}
 		for _, b := range n.Blocks {
-			if b != Hole && b < uint32(len(f.used)) {
+			if b != Hole && b < uint32(len(f.used)) && !f.used[b] {
 				f.used[b] = true
+				f.nfree--
 			}
 		}
 	}
@@ -134,8 +137,12 @@ func (f *FS) autosave() {
 		case <-t.C:
 			f.mu.Lock()
 			if f.dirty && time.Since(f.lastChange) >= SaveDelay {
-				if err := f.commitLocked(); err != nil && f.OnError != nil {
-					go f.OnError(err)
+				if err := f.commitLocked(); err != nil {
+					// hibánál nem próbálkozunk másodpercenként: újabb kísérlet SaveDelay múlva
+					f.lastChange = time.Now()
+					if f.OnError != nil {
+						go f.OnError(err)
+					}
 				}
 			}
 			f.mu.Unlock()
@@ -198,6 +205,7 @@ func (f *FS) commitLocked() error {
 	}
 	for _, b := range f.pending {
 		f.used[b] = false
+		f.nfree++
 	}
 	f.pending = nil
 	f.fresh = map[uint32]bool{}
@@ -314,10 +322,8 @@ func (f *FS) Space() (total, free uint64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	total = uint64(len(f.used))
-	for _, u := range f.used {
-		if !u {
-			free++
-		}
+	if a := f.availLocked(); a > 0 {
+		free = uint64(a)
 	}
 	return
 }
@@ -431,6 +437,7 @@ func (f *FS) freeBlock(b uint32) {
 	if f.fresh[b] {
 		delete(f.fresh, b)
 		f.used[b] = false
+		f.nfree++
 	} else {
 		f.pending = append(f.pending, b)
 	}
@@ -580,6 +587,7 @@ func (f *FS) alloc() (uint32, error) {
 		if !f.used[b] {
 			f.used[b] = true
 			f.fresh[b] = true
+			f.nfree--
 			f.nextFree = b + 1
 			return b, nil
 		}
@@ -636,6 +644,9 @@ func (f *FS) ReadAt(id uint64, buf []byte, off int64) (int, error) {
 	if n == nil {
 		return 0, ErrNotFound
 	}
+	if off < 0 {
+		return 0, ErrInvalid
+	}
 	if off >= n.Size {
 		return 0, nil
 	}
@@ -655,16 +666,25 @@ func (f *FS) ReadAt(id uint64, buf []byte, off int64) (int, error) {
 	return done, nil
 }
 
-// freeCount – szabad blokkok (gyorsítótárban várakozók levonásával), helyhiány előzetes jelzéséhez.
-func (f *FS) freeCountLocked() int {
-	c := 0
-	for _, u := range f.used {
-		if !u {
-			c++
+// needsAlloc – a blokk kiírásához új blokk kell-e (lyuk, vagy a mentett állapot része: copy-on-write).
+func (f *FS) needsAlloc(n *Node, idx int) bool {
+	return idx >= len(n.Blocks) || n.Blocks[idx] == Hole || !f.fresh[n.Blocks[idx]]
+}
+
+// availLocked – ténylegesen felhasználható szabad blokkok: a gyorsítótárban várakozó,
+// új helyet igénylő blokkok már előre le vannak foglalva, így a mentés soha nem futhat ki a helyből.
+func (f *FS) availLocked() int {
+	reserved := 0
+	for k := range f.cache {
+		if n := f.nodes[k.id]; n != nil && f.needsAlloc(n, k.idx) {
+			reserved++
 		}
 	}
-	return c - len(f.cache)
+	return f.nfree - reserved
 }
+
+// maxFileSize – a konténer teljes kapacitása; ennél nagyobb fájl biztosan nem fér el.
+func (f *FS) maxFileSize() int64 { return int64(len(f.used)) * BlockSize }
 
 func (f *FS) WriteAt(id uint64, data []byte, off int64) (int, error) {
 	f.mu.Lock()
@@ -679,9 +699,25 @@ func (f *FS) WriteAt(id uint64, data []byte, off int64) (int, error) {
 	if n.Dir {
 		return 0, ErrIsDir
 	}
+	if off < 0 {
+		return 0, ErrInvalid
+	}
+	if len(data) == 0 {
+		return 0, nil
+	}
 	end := off + int64(len(data))
-	need := int((end+BlockSize-1)/BlockSize) - len(n.Blocks)
-	if need > 0 && need > f.freeCountLocked() {
+	if end < off || end > f.maxFileSize() {
+		return 0, ErrNoSpace
+	}
+	// előzetes helyfoglalás: minden blokk, amely most kerül a gyorsítótárba és új helyet igényel
+	// (bővítés, lyuk kitöltése vagy mentett blokk felülírása), előre le van foglalva.
+	need := 0
+	for idx := int(off / BlockSize); idx <= int((end-1)/BlockSize); idx++ {
+		if _, ok := f.cache[cacheKey{n.ID, idx}]; !ok && f.needsAlloc(n, idx) {
+			need++
+		}
+	}
+	if need > f.availLocked() {
 		return 0, ErrNoSpace
 	}
 	for len(n.Blocks) < int((end+BlockSize-1)/BlockSize) {
@@ -738,7 +774,13 @@ func (f *FS) Truncate(id uint64, size int64) error {
 	if size < 0 {
 		return ErrInvalid
 	}
+	if size > f.maxFileSize() {
+		return ErrNoSpace
+	}
 	nblocks := int((size + BlockSize - 1) / BlockSize)
+	if grow := nblocks - len(n.Blocks); grow > 0 && grow > f.availLocked() {
+		return ErrNoSpace // előfoglalás (pl. Intéző-másolás): csak akkor, ha a fájl tényleg elférne
+	}
 	if nblocks < len(n.Blocks) {
 		for i := nblocks; i < len(n.Blocks); i++ {
 			delete(f.cache, cacheKey{n.ID, i})
@@ -751,6 +793,9 @@ func (f *FS) Truncate(id uint64, size int64) error {
 		k := cacheKey{n.ID, idx}
 		b, ok := f.cache[k]
 		if !ok {
+			if f.needsAlloc(n, idx) && f.availLocked() < 1 {
+				return ErrNoSpace
+			}
 			old, err := f.getBlockLocked(n, idx)
 			if err != nil {
 				return err

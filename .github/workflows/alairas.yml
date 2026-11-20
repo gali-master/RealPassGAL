@@ -1,0 +1,33 @@
+name: Aláírás a kiadáshoz
+
+# Ha az "alairasok" mappába új aláírás kerül (pl. alairasok/v1.1.0.sig), azt a megfelelő
+# kiadás mellé teszi RealPassGAL.zip.sig néven. Az aláírást a kiadó a saját gépén készíti
+# (Súgó → Kiadás aláírása); a GitHubon nincs aláírókulcs.
+on:
+  push:
+    branches: [main]
+    paths: ["alairasok/*.sig"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  feltoltes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Aláírások feltöltése
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in alairasok/v*.sig; do
+            [ -f "$f" ] || continue
+            TAG=$(basename "$f" .sig)
+            case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "kihagyva: $f"; continue;; esac
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              mkdir -p tmp && cp "$f" tmp/RealPassGAL.zip.sig
+              gh release upload "$TAG" tmp/RealPassGAL.zip.sig --clobber
+              echo "feltöltve: $TAG"
+            fi
+          done

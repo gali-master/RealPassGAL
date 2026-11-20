@@ -42,8 +42,12 @@ func (a *app) mainWindow() {
 				Items: []MenuItem{
 					Action{Text: "Súgó", Shortcut: Shortcut{Key: walk.KeyF1}, OnTriggered: func() { showHelp(u.mw) }},
 					Action{Text: "Bemutató indítása", OnTriggered: startDemoProcess},
+					Separator{},
+					Action{Text: "Frissítés keresése", OnTriggered: func() { go u.checkUpdates(true) }},
+					Action{Text: "Kiadás aláírása (csak a kiadónak)…", OnTriggered: u.signRelease},
+					Separator{},
 					Action{Text: "Névjegy", OnTriggered: func() {
-						infoBox(u.mw, "RealPassGAL – 5. lépés (kulcsok, konténer, felcsatolás, foglalás, újrakulcsolás)\nX25519 + Ed25519 + kulcskönyv, XChaCha20-Poly1305, Argon2id")
+						infoBox(u.mw, "RealPassGAL "+Version+"\nX25519 + Ed25519 + kulcskönyv, XChaCha20-Poly1305, Argon2id\nhttps://github.com/"+releaseRepo)
 					}},
 				},
 			},
@@ -163,6 +167,9 @@ func (a *app) mainWindow() {
 	})
 	if demo != nil {
 		u.mw.Starting().Attach(func() { go u.photoScript() })
+	}
+	if demo == nil && bemutato == nil {
+		u.mw.Starting().Attach(func() { go u.checkUpdates(false) })
 	}
 	if bemutato != nil {
 		u.mw.Starting().Attach(func() { bemutato.start(u) })

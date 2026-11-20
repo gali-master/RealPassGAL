@@ -1,0 +1,9 @@
+RealPassGAL 1.1.0
+
+• Áramszünet-biztosabb mentés: ha egy mentés félbeszakad, a konténer az előző ép mentéssel
+  megnyílik (és a program szól róla), a legutóbbi jó mentés soha nem íródik felül.
+• Teli konténer: a program időben szól, ha nincs elég hely; a már elvégzett módosítások
+  nem vesznek el lecsatoláskor.
+• Óriási, a konténerbe nem férő fájlméret beállítását a program elutasítja.
+• Automatikus frissítés: induláskor (naponta legfeljebb egyszer) megnézi, van-e újabb verzió;
+  csak a kiadó saját kulcsával aláírt frissítést telepíti.

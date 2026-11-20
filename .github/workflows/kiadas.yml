@@ -1,41 +1,55 @@
 name: Kiadás
 
-# Egy "v*" címke (pl. v1.0.0) feltöltésekor lefordítja a programot,
-# összerakja a csomagot (exe + hangok + útmutató + WinFsp), és kiadást készít.
+# Kézi indítás (Actions → Kiadás → Run workflow): lefordítja a programot, összerakja a csomagot
+# (exe + hangok + útmutató + WinFsp), és kiadást készít a version.go-ban megadott verzióval.
+# Az aláírás NEM itt készül: a kiadó a saját gépén, a programból írja alá (alairas.yml teszi a kiadás mellé).
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  kiadas:
+  forditas:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.24"
       - name: Tesztek
         run: go test ./core
-      - name: WinFsp telepítő letöltése
+      - name: WinFsp telepítő letöltése (rögzített ellenőrzőkóddal)
         run: |
           mkdir -p winfsp
           curl -fsSL -o winfsp/winfsp-2.1.25156.msi https://github.com/winfsp/winfsp/releases/download/v2.1/winfsp-2.1.25156.msi
-      - name: Manifest (rsrc)
+          echo "073a70e00f77423e34bed98b86e600def93393ba5822204fac57a29324db9f7a  winfsp/winfsp-2.1.25156.msi" | sha256sum -c -
+      - name: Manifest (rsrc, rögzített verzió)
         run: |
-          go install github.com/akavel/rsrc@latest
+          go install github.com/akavel/rsrc@v0.10.2
           $(go env GOPATH)/bin/rsrc -arch amd64 -manifest realpassgal.manifest -o rsrc_windows_amd64.syso
       - name: Csomag
-        run: sh make_release.sh "${GITHUB_REF_NAME}"
+        run: sh make_release.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: csomag
+          path: dist/
+
+  kiadas:
+    needs: forditas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # csak ennek a lépésnek kell írási jog
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: csomag
+          path: dist/
       - name: Kiadás
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          case "$TAG" in v*) ;; *) TAG="v1.0.0";; esac
-          gh release create "$TAG" dist/RealPassGAL.zip dist/RealPassGAL.zip.sha256 dist/telepito.bat \
-            --title "RealPassGAL ${TAG#v}" --notes-file KIADAS.md || \
-          gh release upload "$TAG" dist/RealPassGAL.zip dist/RealPassGAL.zip.sha256 dist/telepito.bat --clobber
+          VER=$(cat dist/VERZIO.txt)
+          gh release create "v$VER" dist/RealPassGAL.zip dist/RealPassGAL.zip.sha256 dist/telepito.bat \
+            --target "$GITHUB_SHA" --title "RealPassGAL $VER" --notes-file KIADAS.md

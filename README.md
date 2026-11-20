@@ -12,14 +12,14 @@ A RealPassGAL egy zsebre tehető, titkosított széf Windowsra. Egyetlen `.gal` 
 
 1. Töltsd le a **[telepito.bat](https://github.com/gali-master/RealPassGAL/releases/latest/download/telepito.bat)** fájlt, és indítsd el.
 2. A telepítő megkérdezi, hova tegye a programot, letölti a legfrissebb kiadást, **ellenőrzi az ellenőrzőösszegét**, és ha kell, telepíti a WinFsp illesztőt is.
-3. Frissítésnél ugyanígy futtasd: a kulcsaidhoz (`adatok` mappa) nem nyúl.
+3. Frissítés: az 1.1.0-tól a program magától szól, ha van újabb, a kiadó által aláírt verzió (Súgó → Frissítés keresése). A kulcsaidhoz (`adatok` mappa) nem nyúl.
 
 Kézi telepítés: a [Kiadások](https://github.com/__FELHASZNALO/RealPassGAL/releases/latest) oldalon a `RealPassGAL.zip` tartalmazza a kész `RealPassGAL.exe`-t, a bemutató hangjait, az útmutatót és a WinFsp telepítőjét.
 
 ## Mit tud?
 
 - **Hibrid kulcs:** saját kulcspár (X25519 + Ed25519) **és** egy személyesen, pendrive-on cserélt kulcskönyv (1 048 576 kulcs). A kulcspárt a jelszavad védi (Argon2id).
-- **Meghajtóként nyílik** (WinFsp), választható betűvel; automatikus mentés, áramszünet-biztos írás.
+- **Meghajtóként nyílik** (WinFsp), választható betűvel; automatikus mentés; megszakadt mentés után az előző ép állapot nyílik meg.
 - **Blokkonkénti titkosítás és ellenőrzés** (XChaCha20-Poly1305), fájlonként SHA-256.
 - **Foglalás:** ha a partnered dolgozik benne, nálad csak olvasható – nem írjátok felül egymást.
 - **Elvitel / visszahozás**, **30 naponta friss kulcs** (újrakulcsolás), a régi mentések nyithatók maradnak.

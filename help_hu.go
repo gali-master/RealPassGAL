@@ -106,7 +106,21 @@ kulcscsere közben becsempészné a saját kulcsát, az ujjlenyomat nem egyezne.
  – A gyenge pont a jelszó és a gép: vírusos gépen semmi sem véd.
  – Ne add ki senkinek az identitas.galid fájlt és a jelszót.
 
-8. HIBAÜZENETEK
+8. FRISSÍTÉS
+ A program induláskor (naponta legfeljebb egyszer) a háttérben megnézi,
+ van-e újabb verzió. Ha van, megmutatja, mi változott, és megkérdezi:
+ frissítsen-e most. A „Frissítés most” letölti az új verziót, ellenőrzi,
+ kicseréli a programot, és újraindítja. Az adatok mappához (kulcsok) és a
+ konténerekhez nem nyúl. Kézzel: Súgó → Frissítés keresése.
+ Biztonság: minden kiadást a kiadó a SAJÁT gépén, a saját RealPassGAL-
+ kulcsával ír alá. A program csak olyan frissítést telepít, amelyet te
+ vagy az egyik partnered írt alá – és mindig ugyanaz a kiadó. Így egy
+ feltört GitHub-fiókkal sem lehet hamis frissítést küldeni.
+ Kiadóknak: Súgó → Kiadás aláírása – letölti a GitHubon lévő legújabb
+ csomagot, megmutatja a verziót, és aláírás után az „alairasok” mappába
+ menti; onnan a GitHub-tároló „alairasok” mappájába kell feltenni.
+
+9. HIBAÜZENETEK
  „hibás jelszó (vagy sérült kulcsfájl)” – rossz jelszó, vagy a fájl sérült.
  „a nyilvános kulcs aláírása érvénytelen” – a .galpub fájlt módosították.
  „ez a kulcskönyv nem neked szól” – más partnernek készült a .galkbx.
@@ -120,6 +134,12 @@ kulcscsere közben becsempészné a saját kulcsát, az ujjlenyomat nem egyezne.
  „A felcsatoláshoz telepíteni kell a WinFsp-t” – lásd fent, Felcsatolás.
  „meghajtó nem csatolható fel” – foglalt a betű; válassz másikat.
  „megtelt a konténer” – törölj belőle, vagy készíts nagyobb konténert.
+   Egy már bent lévő fájl átírásához is kell szabad hely (a régi változat
+   a következő mentésig megmarad – így áramszünetnél sem vész el).
+ „A legutóbbi mentés nem volt teljes…” – pl. áramszünet volt mentés
+   közben; az előző ép mentés nyílt meg, az utolsó módosítások hiányozhatnak.
+ „Gyanús frissítés – nem telepítem” – a letöltött frissítés aláírása
+   nem stimmel. Ne erőltesd; szólj a kiadónak.
  „X használja” – foglalt; csak olvasható lesz.
  „A OneDrive még nem töltötte le…” – várj a szinkronra, utána próbáld újra.
  „ÜTKÖZÉS” – az elvitel alatt más is írt; kézzel kell egyeztetni.
