@@ -21,6 +21,9 @@ echo  Javasolt hely: %DEST%
 set "IN="
 set /p "IN= Enter = elfogadom, vagy írj be másik mappát: "
 if defined IN set "DEST=!IN:"=!"
+rem a záró \ jelet levágjuk (a robocopy különben félreérti az idézőjelet)
+:vagas
+if "!DEST:~-1!"=="\" if not "!DEST:~-2!"==":\" (set "DEST=!DEST:~0,-1!" & goto :vagas)
 echo.
 echo  A program ide kerül: %DEST%
 choice /c IN /n /m " Mehet? [I]gen / [N]em: "
@@ -50,7 +53,7 @@ if not errorlevel 1 (
 powershell -NoProfile -Command "Expand-Archive -Force -LiteralPath '%TMPD%\%ZIP%' -DestinationPath '%TMPD%\x'"
 if errorlevel 1 goto :hiba_kicsomagolas
 if not exist "%DEST%" mkdir "%DEST%"
-robocopy "%TMPD%\x" "%DEST%" /E /XD adatok /NFL /NDL /NJH /NJS /NP >nul
+robocopy "%TMPD%\x" "%DEST%" /E /XD adatok /R:3 /W:2 /NDL /NJH /NP > "%TMPD%\masolas.txt"
 if errorlevel 8 goto :hiba_masolas
 echo  Fájlok a helyükön. (A meglévő kulcsaidhoz az adatok mappában nem nyúltam.)
 
@@ -98,5 +101,10 @@ pause & goto :eof
 echo  HIBA: a kicsomagolás nem sikerült.
 pause & goto :eof
 :hiba_masolas
-echo  HIBA: a fájlok másolása nem sikerült (jogosultság?). Próbálj másik mappát.
+echo  HIBA: a fájlok másolása nem sikerült. A részletek:
+echo.
+type "%TMPD%\masolas.txt"
+echo.
+echo  Tipp: fut még a RealPassGAL, vagy fel van csatolva egy konténer? Zárd be, és indítsd újra a telepítőt.
+echo  A meglévő kulcsaidhoz (adatok mappa) nem nyúltam.
 pause & goto :eof
