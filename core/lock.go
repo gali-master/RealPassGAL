@@ -30,10 +30,10 @@ func Hostname() string {
 
 // signedJSON – aláírt, nem titkos kis fájlok (foglalás, állapot) közös burka.
 type signedJSON struct {
-	Format string          `json:"format"`
+	Format string `json:"format"`
 	Body   []byte `json:"body"` // pontos bájtok (base64) – az aláírás ezekre vonatkozik
-	FP     []byte          `json:"fp"`
-	Sig    []byte          `json:"sig"`
+	FP     []byte `json:"fp"`
+	Sig    []byte `json:"sig"`
 }
 
 func writeSigned(path, format string, me *Identity, body any) error {
@@ -84,6 +84,11 @@ type Lock struct {
 
 func (l *Lock) Mine(me *Identity) bool {
 	return l.Signer != nil && bytes.Equal(l.Signer.FingerprintBytes(), me.Public().FingerprintBytes()) && l.Machine == Hostname()
+}
+
+// ByMe – a foglalást mi hoztuk létre (bármelyik gépen).
+func (l *Lock) ByMe(me *Identity) bool {
+	return l.Signer != nil && bytes.Equal(l.Signer.FingerprintBytes(), me.Public().FingerprintBytes())
 }
 
 func (l *Lock) Stale() bool { return !l.Offline && time.Since(l.Heartbeat) > LockStaleAfter }

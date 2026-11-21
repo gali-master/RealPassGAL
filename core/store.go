@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	MaxPartners  = 3 // + én = 4 címzett-rekesz a konténerben
+	MaxPartners  = 200 // a partnerlista hossza; egy ládikának legfeljebb MaxRecipients címzettje lehet
 	partnersAD   = "RealPassGAL v1 partnerek"
 	IdentityFile = "identitas.galid"
 	PartnersFile = "partnerek.galdb"
@@ -91,7 +91,7 @@ func AddPartner(ps []*PublicKey, me *Identity, p *PublicKey) ([]*PublicKey, erro
 		}
 	}
 	if len(ps) >= MaxPartners {
-		return ps, errors.New("legfeljebb 3 partner lehet (veled együtt 4 címzett)")
+		return ps, errors.New("legfeljebb 200 partner lehet")
 	}
 	return append(ps, p), nil
 }

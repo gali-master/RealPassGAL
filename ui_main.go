@@ -3,9 +3,11 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -23,11 +25,15 @@ type mainUI struct {
 	tw        *walk.TabWidget
 	mnt       *mount
 	keybooks  []*core.Keybook
+	kbInfo    core.KeybookInfos
+	seen      core.Seen
+	seenMu    sync.Mutex
 }
 
 func (a *app) mainWindow() {
 	u := &mainUI{app: a}
 	u.loadKeybooks()
+	u.loadKbInfo()
 	fp := a.me.Public().Fingerprint()
 
 	err := MainWindow{
@@ -76,7 +82,7 @@ func (a *app) mainWindow() {
 								},
 							},
 							GroupBox{
-								Title:  "Partnerek (legfeljebb 3)",
+								Title:  "Partnerek",
 								Layout: VBox{},
 								Children: []Widget{
 									ListBox{AssignTo: &u.partnerLB, Font: Font{Family: "Consolas", PointSize: 10}},
@@ -96,7 +102,7 @@ func (a *app) mainWindow() {
 						Title:  "Kulcskönyv",
 						Layout: VBox{},
 						Children: []Widget{
-							Label{Text: "A kulcskönyv 1 048 576 darab 32 bájtos kulcs (32 MB). Személyesen, pendrive-on adjátok át.\nÁtadás után hasonlítsátok össze az ellenőrzőkódot (KK-…): ha egyezik, a két könyv azonos."},
+							Label{Text: "A kulcskönyv 1 048 576 darab 32 bájtos kulcs (32 MB). Személyesen, pendrive-on adjátok át.\nÁtadás után hasonlítsátok össze az ellenőrzőkódot (KK-…): ha egyezik, a két könyv azonos.\nTipp: projektenként, partnerenként külön kulcskönyvet érdemes használni – adj neki nevet."},
 							ListBox{AssignTo: &u.kbLB, Font: Font{Family: "Consolas", PointSize: 10}},
 							Composite{
 								Layout: HBox{MarginsZero: true},
@@ -104,6 +110,7 @@ func (a *app) mainWindow() {
 									PushButton{Text: "Új kulcskönyv generálása…", OnClicked: u.newKeybook},
 									PushButton{Text: "Átadás partnernek (pendrive)…", OnClicked: u.exportKeybook},
 									PushButton{Text: "Átvétel (importálás)…", OnClicked: u.importKeybook},
+									PushButton{Text: "Átnevezés…", OnClicked: u.renameKeybook},
 									HSpacer{},
 								},
 							},
@@ -128,6 +135,7 @@ func (a *app) mainWindow() {
 									PushButton{Text: "Új konténer…", OnClicked: u.newContainer},
 									PushButton{Text: "Megnyitás és ellenőrzés…", OnClicked: u.openContainer},
 									PushButton{Text: "Újrakulcsolás most…", OnClicked: u.rekeyNow},
+									PushButton{Text: "Láda beállításai…", OnClicked: u.ladaSettings},
 								},
 							},
 							Label{AssignTo: &u.mountLbl, Text: "Nincs felcsatolt konténer.", Font: Font{PointSize: 10, Bold: true}},
@@ -275,8 +283,8 @@ func (u *mainUI) loadKeybooks() {
 func (u *mainUI) refreshKeybooks() {
 	items := []string{}
 	for _, k := range u.keybooks {
-		items = append(items, fmt.Sprintf("#%s  létrehozva: %s  ellenőrzőkód: %s",
-			k.ShortID(), k.Created.Local().Format("2006-01-02 15:04"), k.CheckCode()))
+		items = append(items, fmt.Sprintf("%s  ·  %s  ·  %s  ·  %s",
+			u.kbLabel(k), u.kbHolders(k), k.Created.Local().Format("2006-01-02"), k.CheckCode()))
 	}
 	if len(items) == 0 {
 		items = append(items, "(még nincs kulcskönyv)")
@@ -314,9 +322,13 @@ func (u *mainUI) newKeybook() {
 		return
 	}
 	u.keybooks = append(u.keybooks, k)
+	if name, ok := askText(u.mw, "Kulcskönyv neve", "Kész a kulcskönyv (#"+k.ShortID()+").\nAdj neki nevet, hogy később tudd, mire való (pl. „Anna – projekt”):", ""); ok && name != "" {
+		u.kbInfo.Get(k).Name = name
+		u.saveKbInfo()
+	}
 	u.refreshKeybooks()
-	infoBox(u.mw, "Kész a kulcskönyv: #"+k.ShortID()+"\nEllenőrzőkód: "+k.CheckCode()+
-		"\n\nKövetkező lépés: „Átadás partnernek (pendrive)…”.")
+	infoBox(u.mw, "Kész a kulcskönyv: "+u.kbLabel(k)+"\nEllenőrzőkód: "+k.CheckCode()+
+		"\n\nKövetkező lépés: jelöld ki, és „Átadás partnernek (pendrive)…”.")
 }
 
 func (u *mainUI) selectedKeybook() *core.Keybook {
@@ -366,6 +378,9 @@ func (u *mainUI) exportKeybook() {
 		errBox(u.mw, "Az átadó fájl mentése nem sikerült.", err)
 		return
 	}
+	u.kbInfo.MarkGiven(k, p)
+	u.saveKbInfo()
+	u.refreshKeybooks()
 	infoBox(u.mw, "Elmentve. A fájlt csak "+p.Name+" tudja megnyitni a saját kulcsával.\n\n"+
 		"Átvétel után hasonlítsátok össze az ellenőrzőkódot:\n"+k.CheckCode()+
 		"\n\nHálózaton NE küldd el – a kulcskönyv lényege, hogy csak személyesen cseréltek.")
@@ -433,6 +448,13 @@ func (u *mainUI) importKeybook() {
 		return
 	}
 	u.keybooks = append(u.keybooks, k)
+	info := u.kbInfo.Get(k)
+	info.From = hex.EncodeToString(sender.FingerprintBytes())
+	info.Name = sender.Name + " kulcskönyve"
+	if name, ok := askText(u.mw, "Kulcskönyv neve", "Átvetted "+sender.Name+" kulcskönyvét. Adj neki nevet (pl. a projekt neve):", info.Name); ok && name != "" {
+		info.Name = name
+	}
+	u.saveKbInfo()
 	u.refreshKeybooks()
 	infoBox(u.mw, "Átvéve "+sender.Name+" kulcskönyve: #"+k.ShortID()+
 		"\n\nEllenőrzőkód: "+k.CheckCode()+"\nHasonlítsd össze azzal, amit "+sender.Name+" lát!\n\n"+

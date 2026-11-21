@@ -187,6 +187,21 @@ func (u *mainUI) mountDialog() {
 				return
 			}
 			ro = true
+		case l.ByMe(u.me) && !l.Offline:
+			// a saját foglalásunk egy MÁSIK gépen (pl. ott megszakadt a kapcsolat)
+			r := walk.MsgBox(u.mw, appTitle, "Ezt a foglalást te hoztad létre a(z) „"+l.Machine+"” gépen ("+
+				l.Since.Local().Format("2006-01-02 15:04")+" óta).\n\n"+
+				"Ha ott már nem használod a ládát (pl. megszakadt a kapcsolat), átveheted.\n\n"+
+				"Igen = átveszem, írható lesz\nNem = csak olvasható\nMégse = kilépés",
+				walk.MsgBoxYesNoCancel|walk.MsgBoxIconQuestion|walk.MsgBoxDefButton2)
+			switch r {
+			case walk.DlgCmdYes:
+				takeOver = true
+			case walk.DlgCmdNo:
+				ro = true
+			default:
+				return
+			}
 		case l.Stale():
 			r := walk.MsgBox(u.mw, appTitle, "A konténert "+l.Who()+" foglalta, de "+
 				time.Since(l.Heartbeat).Round(time.Minute).String()+" óta nem jelentkezett (valószínűleg lefagyott).\n\n"+
@@ -218,6 +233,11 @@ func (u *mainUI) mountDialog() {
 	if c.Warning != "" {
 		infoBox(u.mw, c.Warning)
 	}
+	if !u.rollbackOK(c) {
+		c.Close()
+		return
+	}
+	u.noteSeen(c)
 
 	// 2) szinkronvédelem
 	if !ro {
@@ -261,7 +281,7 @@ func (u *mainUI) mountDialog() {
 		return
 	}
 	if !ro {
-		c.AfterCommit = func() { core.WriteState(path, u.me, c) }
+		c.AfterCommit = func() { core.WriteState(path, u.me, c); u.noteSeen(c) }
 		// 4) 30 naponta lapozás a kulcskönyvben
 		if c.NeedsRekey() {
 			infoBox(u.mw, "A kulcs betöltötte a 30 napot, ezért most lapozunk egyet a kulcskönyvben:\n"+
@@ -519,7 +539,7 @@ func (u *mainUI) rekeyNow() {
 		errBox(u.mw, "Véletlengenerátor hiba.", err)
 		return
 	}
-	c.AfterCommit = func() { core.WriteState(path, u.me, c) }
+	c.AfterCommit = func() { core.WriteState(path, u.me, c); u.noteSeen(c) }
 	if u.rekey(c, rng) {
 		u.showInfo(c, 0, nil)
 	}

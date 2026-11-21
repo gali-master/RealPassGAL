@@ -1,9 +1,13 @@
-RealPassGAL 1.1.0
+RealPassGAL 1.2.0
 
-• Áramszünet-biztosabb mentés: ha egy mentés félbeszakad, a konténer az előző ép mentéssel
-  megnyílik (és a program szól róla), a legutóbbi jó mentés soha nem íródik felül.
-• Teli konténer: a program időben szól, ha nincs elég hely; a már elvégzett módosítások
-  nem vesznek el lecsatoláskor.
-• Óriási, a konténerbe nem férő fájlméret beállítását a program elutasítja.
-• Automatikus frissítés: induláskor (naponta legfeljebb egyszer) megnézi, van-e újabb verzió;
-  csak a kiadó saját kulcsával aláírt frissítést telepíti.
+• Nevesített kulcskönyvek: minden kulcskönyv kaphat nevet (pl. „Anna – projekt”), és a program
+  megjegyzi, kinek adtad át, illetve kitől kaptad.
+• Új ládánál semmi nincs előre kiválasztva: a kulcskönyvet és a címzetteket tudatosan kell
+  megadni. Ha egy címzett nem kapta meg a választott kulcskönyvet, a program figyelmeztet.
+• Láda beállításai: egy meglévő láda kulcskönyve és címzettjei utólag is módosíthatók.
+  Kulcskönyv-csere és új címzett: gyors, a tartalom változatlan. Címzett kivétele: új belső
+  kulcs és teljes újratitkosítás, így a kivett személy akkor sem nyitja ki, ha korábban hozzáfért.
+• Bent maradt saját foglalás (pl. megszakadt kapcsolat miatt, másik gépen) egy kattintással átvehető.
+• Egyszerre csak egy programpéldány futhat, így két példány nem írhatja ugyanazt a ládát.
+• Visszagörgetés-jelzés: ha egy láda régebbi, mint amit legutóbb láttál, a program szól.
+• A partnerlista már nem korlátozott 3 főre (egy ládának továbbra is legfeljebb 3 címzettje lehet).

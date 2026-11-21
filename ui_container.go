@@ -125,14 +125,19 @@ func (u *mainUI) newContainer() {
 	checks := make([]*walk.CheckBox, len(u.partners))
 	partnerWidgets := []Widget{}
 	for i, p := range u.partners {
-		partnerWidgets = append(partnerWidgets, CheckBox{AssignTo: &checks[i], Text: p.Name + "   " + p.Fingerprint(), Checked: true})
+		// nincs alapértelmezett pipa: mindenkit tudatosan kell kiválasztani (a bemutatóban marad)
+		partnerWidgets = append(partnerWidgets, CheckBox{AssignTo: &checks[i], Text: p.Name + "   " + p.Fingerprint(), Checked: demo != nil || bemutato != nil})
 	}
 	if len(u.partners) == 0 {
 		partnerWidgets = append(partnerWidgets, Label{Text: "(nincs partner – csak te fogod tudni megnyitni)"})
 	}
 	kbNames := []string{}
 	for _, k := range u.keybooks {
-		kbNames = append(kbNames, "#"+k.ShortID()+"  "+k.CheckCode())
+		kbNames = append(kbNames, u.kbLabel(k)+"  ·  "+u.kbHolders(k))
+	}
+	kbStart := -1 // nincs alapértelmezett kulcskönyv: tudatosan kell választani
+	if demo != nil || bemutato != nil {
+		kbStart = 0
 	}
 
 	var size int64
@@ -155,7 +160,24 @@ func (u *mainUI) newContainer() {
 				recips = append(recips, u.partners[i])
 			}
 		}
+		if len(recips) > core.MaxRecipients-1 {
+			errBox(dlg, "Egy ládikának legfeljebb 3 címzettje lehet (veled együtt 4).", nil)
+			return
+		}
+		if kbCB.CurrentIndex() < 0 {
+			errBox(dlg, "Válaszd ki, melyik kulcskönyvet használja a láda.\nTipp: azt, amelyet a kiválasztott címzetteknek átadtál.", nil)
+			return
+		}
 		kb = u.keybooks[kbCB.CurrentIndex()]
+		if len(recips) == 0 && demo == nil && bemutato == nil {
+			if walk.MsgBox(dlg, appTitle, "Nem jelöltél ki címzettet – a ládát csak te fogod tudni kinyitni.\nÍgy akarod?",
+				walk.MsgBoxYesNo|walk.MsgBoxIconQuestion|walk.MsgBoxDefButton2) != walk.DlgCmdYes {
+				return
+			}
+		}
+		if demo == nil && bemutato == nil && !u.checkHolders(dlg, kb, recips) {
+			return
+		}
 		path = ensureExt(strings.TrimSpace(pathLE.Text()), ".gal")
 		if _, err := os.Stat(path); err == nil {
 			errBox(dlg, "Ilyen nevű fájl már van – válassz másik nevet.", nil)
@@ -191,7 +213,7 @@ func (u *mainUI) newContainer() {
 			LineEdit{AssignTo: &pathLE, Text: defaultPath},
 			PushButton{Text: "Tallózás…", OnClicked: browse},
 			Label{Text: "Kulcskönyv:"},
-			ComboBox{AssignTo: &kbCB, ColumnSpan: 2, Model: kbNames, CurrentIndex: 0},
+			ComboBox{AssignTo: &kbCB, ColumnSpan: 2, Model: kbNames, CurrentIndex: kbStart},
 			GroupBox{
 				ColumnSpan: 3,
 				Title:      "Ki férhet hozzá? (te mindig)",
@@ -269,6 +291,8 @@ func (u *mainUI) openContainer() {
 		return
 	}
 	defer c.Close()
+	u.rollbackOK(c) // csak figyelmeztet; az ellenőrzés mindenképp lefut
+	u.noteSeen(c)
 	var n int
 	verr := runWithProgress(u.mw, "Ellenőrzés", func(p core.ProgressFunc) error {
 		var e error
@@ -289,7 +313,7 @@ func (u *mainUI) showInfo(c *core.Container, checked int, verr error) {
 		"Címzettek:         " + strings.Join(c.RecipientNames(), ", "),
 		"Létrehozta:        " + c.Meta.CreatedBy + " · " + t(h.Created.Local()),
 		fmt.Sprintf("Utoljára mentette: %s · %s · %d. generáció", c.SignedBy, t(c.Meta.SavedAt.Local()), h.Generation),
-		"Kulcskönyv:        #" + fmt.Sprintf("%x", h.KeybookID[:4]),
+		"Kulcskönyv:        " + u.kbLabelOrID(u.lookupKeybook(h.KeybookID), h.KeybookID),
 		"                   " + c.KeyAgeText(),
 		"",
 	}

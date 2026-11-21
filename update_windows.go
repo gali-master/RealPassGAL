@@ -172,6 +172,7 @@ func (u *mainUI) offerUpdate(info *core.ReleaseInfo, signer *core.PublicKey, fp 
 	st.Publisher = fp
 	u.saveUpdateState(st)
 	infoBox(u.mw, "A frissítés kész ("+info.Version+"). A program most újraindul.")
+	releaseInstance() // az újraindított program ne higgye, hogy már fut egy példány
 	if err := exec.Command(exe).Start(); err != nil {
 		errBox(u.mw, "Indítsd el kézzel újra a programot.", err)
 	}

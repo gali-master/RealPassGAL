@@ -188,6 +188,10 @@ func runPhotoMode() {
 	a := &app{dir: dataDir, password: "minta", me: me, partners: []*core.PublicKey{anna.Public()}}
 	kb, _ := core.NewKeybook(rng)
 	kb.Save(core.KeybookPath(dataDir, kb), me.StorageKey, rng)
+	kbi := core.KeybookInfos{}
+	kbi.Get(kb).Name = "Anna – közös projekt"
+	kbi.MarkGiven(kb, anna.Public())
+	kbi.Save(dataDir, me.StorageKey, rng)
 	c, err := core.CreateContainer(demo.container, 24<<20, me, a.partners, kb, rng, nil)
 	if err != nil {
 		errBox(nil, "A mintakonténer nem készült el.", err)

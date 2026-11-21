@@ -199,3 +199,153 @@ func TestJavitasTeliKontener(t *testing.T) {
 		t.Fatal("hibás tartalom a darabos átírás után")
 	}
 }
+
+// 1.2.0: kulcskönyv cseréje – a tartalom változatlan, a régi könyvvel már nem nyílik, az újjal igen.
+func TestKulcskonyvCsere(t *testing.T) {
+	r, _ := NewRNG()
+	gal, anna, peter := mk(t, "Gal"), mk(t, "Anna"), mk(t, "Peter")
+	kbPeter, _ := NewKeybook(r)
+	kbAnna, _ := NewKeybook(r)
+	p := filepath.Join(t.TempDir(), "titkos2.gal")
+	c, err := CreateContainer(p, 2<<20, gal, []*PublicKey{anna.Public()}, kbPeter, r, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs := NewFS(c, gal, r, false)
+	id, _ := fs.Create("/anna.txt")
+	fs.WriteAt(id, []byte("Anna projektje"), 0)
+	fs.Release(id)
+	if err := fs.Save(); err != nil {
+		t.Fatal(err)
+	}
+	blocksBefore := c.UsedBlocks()
+	if err := c.ChangeKeybook(gal, []*PublicKey{anna.Public(), peter.Public()}, kbPeter, kbAnna, r); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(c.UsedBlocks()) != fmt.Sprint(blocksBefore) {
+		t.Fatal("a csere megváltoztatta a tartalmat")
+	}
+	fs.Close()
+
+	only := func(kb *Keybook) KeybookLookup {
+		return func(id [16]byte) *Keybook {
+			if id == kb.ID {
+				return kb
+			}
+			return nil
+		}
+	}
+	// Anna az új könyvvel kinyitja, és a tartalom megvan
+	ca, err := OpenContainer(p, anna, []*PublicKey{gal.Public()}, only(kbAnna), false)
+	if err != nil {
+		t.Fatal("Anna nem nyitja az új könyvvel:", err)
+	}
+	fa := NewFS(ca, anna, r, true)
+	aid, err := fa.Open("/anna.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 14)
+	fa.ReadAt(aid, buf, 0)
+	if string(buf) != "Anna projektje" {
+		t.Fatalf("tartalom: %q", buf)
+	}
+	fa.Close()
+	// a legfrissebb fejléc a régi könyvet már nem kéri; Péter (régi könyv, nem címzett) semmiképp
+	if _, err := OpenContainer(p, peter, []*PublicKey{gal.Public()}, only(kbPeter), false); err == nil {
+		t.Fatal("Péter kinyitotta")
+	}
+}
+
+// 1.2.0: visszagörgetés-jelzés.
+func TestLatottMentesek(t *testing.T) {
+	_, gal, _, r, c := jSetup(t, 1<<20)
+	dir := t.TempDir()
+	s, _ := LoadSeen(dir, gal.StorageKey)
+	c.Commit(gal, r)
+	c.Commit(gal, r)
+	s.Note(c)
+	s.Save(dir, gal.StorageKey, r)
+	s2, _ := LoadSeen(dir, gal.StorageKey)
+	if w := s2.RollbackWarning(c); w != "" {
+		t.Fatal("hamis riasztás")
+	}
+	c.H.Generation--
+	if w := s2.RollbackWarning(c); w == "" {
+		t.Fatal("régebbi mentést nem jelzett")
+	}
+}
+
+// 1.2.0: kulcskönyv-címkék.
+func TestKulcskonyvCimkek(t *testing.T) {
+	r, _ := NewRNG()
+	gal, anna := mk(t, "Gal"), mk(t, "Anna")
+	kb, _ := NewKeybook(r)
+	dir := t.TempDir()
+	m, _ := LoadKeybookInfos(dir, gal.StorageKey)
+	m.Get(kb).Name = "Anna – projekt"
+	m.MarkGiven(kb, anna.Public())
+	m.MarkGiven(kb, anna.Public())
+	if err := m.Save(dir, gal.StorageKey, r); err != nil {
+		t.Fatal(err)
+	}
+	m2, err := LoadKeybookInfos(dir, gal.StorageKey)
+	if err != nil || m2.Get(kb).Name != "Anna – projekt" || !m2.Holds(kb, anna.Public()) || len(m2.Get(kb).GivenTo) != 1 {
+		t.Fatal(m2, err)
+	}
+	if _, err := LoadKeybookInfos(dir, anna.StorageKey); err == nil {
+		t.Fatal("idegen kulccsal olvasható")
+	}
+}
+
+// 1.2.0: címzett eltávolítása új belső kulccsal – a kivett személy a régi rekeszével sem nyit.
+func TestCimzettEltavolitas(t *testing.T) {
+	r, _ := NewRNG()
+	gal, anna, peter := mk(t, "Gal"), mk(t, "Anna"), mk(t, "Peter")
+	kbOld, _ := NewKeybook(r)
+	kbAnna, _ := NewKeybook(r)
+	p := filepath.Join(t.TempDir(), "titkos2.gal")
+	c, err := CreateContainer(p, 4<<20, gal, []*PublicKey{anna.Public(), peter.Public()}, kbOld, r, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs := NewFS(c, gal, r, false)
+	id, _ := fs.Create("/a.txt")
+	fs.WriteAt(id, []byte("titok"), 0)
+	fs.Release(id)
+	fs.Save()
+	// Rewrap nem engedi az eltávolítást
+	if err := c.Rewrap(gal, []*PublicKey{gal.Public(), anna.Public()}, kbOld, kbAnna, r); err == nil {
+		t.Fatal("Rewrap eltávolított egy címzettet")
+	}
+	if err := c.RekeyTo(gal, []*PublicKey{gal.Public(), anna.Public()}, kbAnna, r, nil); err != nil {
+		t.Fatal(err)
+	}
+	fs.Close()
+	all := func(id [16]byte) *Keybook {
+		for _, k := range []*Keybook{kbOld, kbAnna} {
+			if k.ID == id {
+				return k
+			}
+		}
+		return nil
+	}
+	if _, err := OpenContainer(p, peter, []*PublicKey{gal.Public()}, all, false); err == nil {
+		t.Fatal("Péter (mindkét könyvvel) kinyitotta a legfrissebb állapotot")
+	}
+	ca, err := OpenContainer(p, anna, []*PublicKey{gal.Public()}, all, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(ca.RecipientNames()) != "[Gal Anna]" {
+		t.Fatal(ca.RecipientNames())
+	}
+	fa := NewFS(ca, anna, r, true)
+	aid, _ := fa.Open("/a.txt")
+	b := make([]byte, 5)
+	fa.ReadAt(aid, b, 0)
+	if string(b) != "titok" {
+		t.Fatalf("%q", b)
+	}
+	fa.Close()
+}

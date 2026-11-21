@@ -790,6 +790,10 @@ func runDemoMode() {
 	partners := []*core.PublicKey{anna.Public()}
 	kb, _ := core.NewKeybook(rng)
 	kb.Save(core.KeybookPath(dataDir, kb), me.StorageKey, rng)
+	kbi := core.KeybookInfos{}
+	kbi.Get(kb).Name = "Anna – közös projekt"
+	kbi.MarkGiven(kb, anna.Public())
+	kbi.Save(dataDir, me.StorageKey, rng)
 	contA := filepath.Join(tmp, "titkos.gal")
 	c, err := core.CreateContainer(contA, 24<<20, me, partners, kb, rng, nil)
 	if err != nil {

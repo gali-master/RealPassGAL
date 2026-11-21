@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -20,25 +19,24 @@ func (c *Container) NeedsRekey() bool { return time.Since(c.H.EpochStart) >= Rek
 // kerülnek, és csak a végén, egyetlen fejléc-írással vált át rájuk a konténer.
 // A régi mentések (régi .gal példányok) a régi oldallal továbbra is nyithatók.
 func (c *Container) Rekey(me *Identity, partners []*PublicKey, kb *Keybook, r io.Reader, progress ProgressFunc) error {
-	h := &c.H
-	if kb.ID != h.KeybookID {
+	if kb.ID != c.H.KeybookID {
 		return errors.New("nem ez a konténer kulcskönyve")
 	}
 	// 1) a címzettek nyilvános kulcsai (mindenkit ismernünk kell az újracsomagoláshoz)
-	known := append([]*PublicKey{me.Public()}, partners...)
-	var recips []*PublicKey
-	for i := 0; i < h.NSlots; i++ {
-		var found *PublicKey
-		for _, p := range known {
-			if bytes.Equal(p.FingerprintBytes(), h.Slots[i].FP[:]) {
-				found = p
-			}
-		}
-		if found == nil {
-			name := c.Meta.Names[hex.EncodeToString(h.Slots[i].FP[:])]
-			return fmt.Errorf("az újrakulcsoláshoz minden címzett nyilvános kulcsa kell, de %q nincs a partnereid között", name)
-		}
-		recips = append(recips, found)
+	recips, err := c.recipients(me, partners)
+	if err != nil {
+		return err
+	}
+	return c.RekeyTo(me, recips, kb, r, progress)
+}
+
+// RekeyTo – teljes újrakulcsolás új belső kulccsal, a megadott címzettekre és kulcskönyvre.
+// Címzett eltávolításakor ez kell: a kivett személy a régi belső kulccsal sem nyit ki semmit.
+// A recips listának tartalmaznia kell a saját kulcsot is.
+func (c *Container) RekeyTo(me *Identity, recips []*PublicKey, kb *Keybook, r io.Reader, progress ProgressFunc) error {
+	h := &c.H
+	if err := checkRecipients(me, recips); err != nil {
+		return err
 	}
 	newEpoch := h.Epoch + 1
 	entry, err := kb.Entry(newEpoch)
@@ -121,6 +119,15 @@ func (c *Container) Rekey(me *Identity, partners []*PublicKey, kb *Keybook, r io
 		}
 	}
 	oldH, oldMeta, oldBlockKey := c.H, c.metaKey, c.blockKey
+	oldNames := c.Meta.Names
+	names := map[string]string{}
+	for k, v := range oldNames {
+		names[k] = v
+	}
+	for _, p := range recips {
+		names[hex.EncodeToString(p.FingerprintBytes())] = p.Name
+	}
+	c.Meta.Names = names
 	oldBlocks := make(map[uint64][]uint32, len(newBlocks))
 	for _, n := range c.Meta.Nodes {
 		if nb, ok := newBlocks[n.ID]; ok {
@@ -128,11 +135,12 @@ func (c *Container) Rekey(me *Identity, partners []*PublicKey, kb *Keybook, r io
 			n.Blocks = nb
 		}
 	}
-	h.Epoch, h.EpochStart, h.Slots = newEpoch, time.Now().UTC().Truncate(time.Second), slots
+	h.Epoch, h.EpochStart, h.Slots, h.NSlots, h.KeybookID = newEpoch, time.Now().UTC().Truncate(time.Second), slots, len(recips), kb.ID
 	c.metaKey, c.blockKey = newMeta, newBlock
 	if err := c.Commit(me, r); err != nil {
 		// visszaállás a régi állapotra (a lemezen a régi fejléc még érvényes)
 		c.H, c.metaKey, c.blockKey = oldH, oldMeta, oldBlockKey
+		c.Meta.Names = oldNames
 		for _, n := range c.Meta.Nodes {
 			if ob, ok := oldBlocks[n.ID]; ok {
 				n.Blocks = ob
@@ -142,5 +150,7 @@ func (c *Container) Rekey(me *Identity, partners []*PublicKey, kb *Keybook, r io
 	}
 	wipe(oldMeta)
 	wipe(oldBlockKey)
-	return nil
+	// második mentés: a másik fejléc-példány is az új beállítást kapja, így a régi
+	// (régi címzettekkel / régi kulcskönyvvel) nem marad a fájlban
+	return c.Commit(me, r)
 }

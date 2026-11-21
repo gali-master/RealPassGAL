@@ -39,6 +39,11 @@ func main() {
 		walk.MsgBox(nil, appTitle, "Nem érem el az adatmappát:\n"+err.Error(), walk.MsgBoxIconError)
 		return
 	}
+	if !singleInstance(dir) {
+		walk.MsgBox(nil, appTitle, "A RealPassGAL már fut ezen a gépen.\n\nHasználd a már megnyitott ablakot (nézd meg a tálcán).\n"+
+			"Két példány egyszerre ugyanazt a ládát írhatná, ezért a második nem indul el.", walk.MsgBoxIconInformation)
+		return
+	}
 	a := &app{dir: dir}
 	idPath := filepath.Join(dir, core.IdentityFile)
 

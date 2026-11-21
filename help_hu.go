@@ -33,19 +33,33 @@ kulcscsere közben becsempészné a saját kulcsát, az ujjlenyomat nem egyezne.
     PONTOSAN egyezik azzal, amit ő személyesen vagy telefonon felolvasott.
 
 4. KULCSKÖNYV (csak személyesen!)
- a) Egyikőtök: „Új kulcskönyv generálása…” (egérmozgatás).
+ a) Egyikőtök: „Új kulcskönyv generálása…” (egérmozgatás), majd adj neki
+    nevet (pl. „Anna – projekt”). Projektenként, partnerenként érdemes
+    külön kulcskönyvet használni. Név utólag: „Átnevezés…”.
  b) „Átadás partnernek (pendrive)…” → .galkbx fájl a pendrive-ra.
     Ezt csak a címzett tudja megnyitni, ezért ha a pendrive elveszik,
     a megtaláló nem tud vele mit kezdeni.
  c) A partner: „Átvétel (importálás)…”.
  d) Hasonlítsátok össze a KK-… ellenőrzőkódot. Ha egyezik, kész.
  e) A .galkbx fájlt utána töröljétek a pendrive-ról.
+ A program megjegyzi, kinek adtad át a könyvet (és kitől kaptad); ezt a
+ Kulcskönyv fül listája mutatja.
  A kulcskönyvet SOHA ne küldjétek hálózaton: az ér valamit, hogy csak
  személyesen cseréltétek.
 
 5. KONTÉNER (.gal)
  a) Konténer fül → „Új konténer…”: méret (1 MB – 100 GB), fájlnév,
-    kulcskönyv, és pipáld be, mely partnerek férhetnek hozzá.
+    kulcskönyv, és pipáld be, mely partnerek férhetnek hozzá (legfeljebb 3).
+    Semmi nincs előre kiválasztva: a kulcskönyvet és a címzetteket mindig
+    tudatosan kell megadni. Ha egy címzettnek nem adtad át a választott
+    kulcskönyvet, a program figyelmeztet.
+ LÁDA BEÁLLÍTÁSAI (Konténer fül → „Láda beállításai…”): egy meglévő láda
+    kulcskönyve és címzettjei utólag is módosíthatók.
+    – Kulcskönyv-csere, új címzett: gyors, a tartalom változatlan.
+    – Címzett kivétele: a láda új belső kulcsot kap, a tartalom
+      újratitkosodik; a kivett személy utána akkor sem nyitja ki, ha korábban
+      hozzáfért. Ehhez annyi szabad hely kell, amennyi adat van benne.
+    A ládát közben senki ne használja.
  b) Egérmozgatás után a program a teljes méretet véletlen adattal tölti fel
     (6 GB kb. 1–2 perc). Kívülről így nem látszik, mennyi benne az adat.
  c) „Megnyitás és ellenőrzés…”: kiírja, kik férnek hozzá, ki mentett
@@ -141,6 +155,16 @@ kulcscsere közben becsempészné a saját kulcsát, az ujjlenyomat nem egyezne.
  „Gyanús frissítés – nem telepítem” – a letöltött frissítés aláírása
    nem stimmel. Ne erőltesd; szólj a kiadónak.
  „X használja” – foglalt; csak olvasható lesz.
+ „Ezt a foglalást te hoztad létre a(z) … gépen” – a saját, másik gépen
+   (pl. megszakadt kapcsolat miatt) bent maradt foglalásod; ha ott már nem
+   használod, átveheted.
+ „Ez a láda RÉGEBBI, mint amit legutóbb láttál” – a OneDrive még nem
+   töltötte le a legfrissebbet, régi másolatot nyitottál, vagy valaki régi
+   példányt tett a helyére. Kinyitni így sem tudja senki, de a legutóbbi
+   módosítások hiányozhatnak. Várj a szinkronra, vagy nézd meg a OneDrive
+   verzióelőzményeit.
+ „A RealPassGAL már fut ezen a gépen” – egyszerre csak egy példány futhat;
+   használd a már megnyitott ablakot.
  „A OneDrive még nem töltötte le…” – várj a szinkronra, utána próbáld újra.
  „ÜTKÖZÉS” – az elvitel alatt más is írt; kézzel kell egyeztetni.
  „a foglalásodat valaki feloldotta” – csatold le, és beszélj a partnereddel.`

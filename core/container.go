@@ -229,7 +229,7 @@ func CreateContainer(path string, size int64, me *Identity, recipients []*Public
 		return nil, err
 	}
 	if len(recipients) > MaxRecipients-1 {
-		return nil, errors.New("legfeljebb 3 partner lehet")
+		return nil, errors.New("egy ládikának legfeljebb 3 címzettje lehet (veled együtt 4)")
 	}
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
